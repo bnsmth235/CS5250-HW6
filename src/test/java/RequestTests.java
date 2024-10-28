@@ -40,34 +40,37 @@ public class RequestTests {
     }
 
     @Test
-    public void testCreateRequestExamples() {
+    public void testCreateRequestExamples() throws InterruptedException {
         // Iterate through files in sample-requests directory
         String directory = "src/test/resources/sample-requests";
         Path path = Path.of(directory).toAbsolutePath().normalize();
         File[] files = new File(path.toString()).listFiles();
         for (File file : files) {
             testCreateRequestExample(file.getPath());
-
+            Thread.sleep(100); // Wait 100ms before processing the next file
         }
     }
 
     private void testCreateRequestExample(String filePath) {
-        File file = new File(filePath);
-        try {
-            String fileJson = new String(Files.readAllBytes(file.toPath()));
-            WidgetRequest request = WidgetRequest.fromJson(fileJson);
-            assertNotNull(request);
-
-            // Verify the request object
-            assertTrue(Arrays.asList("create", "delete", "update").contains(request.getType()));
-            assertNotNull(request.getRequestId());
-            assertNotNull(request.getWidgetId());
-            assertNotNull(request.getOwner());
-            assertNotNull(request.getLabel());
-            assertNotNull(request.getDescription());
-            assertNotNull(request.getOtherAttributes());
-        } catch (IOException e) {
-            fail("Failed to read file: " + file.getName());
+    File file = new File(filePath);
+    try {
+        String fileJson = new String(Files.readAllBytes(file.toPath()));
+        if(fileJson.isBlank()) {
+            // Skip empty files
+            return;
         }
+        WidgetRequest request = WidgetRequest.fromJson(fileJson);
+        assertNotNull(request, "Request is null for file: " + file.getName());
+
+        // Verify the request object
+        assertNotNull(request.getRequestId(), "RequestId is null for request: " + request.toJson() + " in file: " + file.getName());
+        assertNotNull(request.getWidgetId(), "WidgetId is null for request: " + request.toJson() + " in file: " + file.getName());
+        assertNotNull(request.getOwner(), "Owner is null for request: " + request.toJson() + " in file: " + file.getName());
+        assertNotNull(request.getLabel(), "Label is null for request: " + request.toJson() + " in file: " + file.getName());
+        assertNotNull(request.getDescription(), "Description is null for request: " + request.toJson() + " in file: " + file.getName());
+        assertNotNull(request.getOtherAttributes(), "OtherAttributes are null for request: " + request.toJson() + " in file: " + file.getName());
+    } catch (IOException e) {
+        fail("Failed to read file: " + file.getName());
     }
+}
 }

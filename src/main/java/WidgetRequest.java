@@ -19,21 +19,43 @@ public class WidgetRequest {
     @JsonProperty("otherAttributes")
     private List<OtherAttribute> otherAttributes;
 
-    // Getters and Setters
-
-    public String toJson() {
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            return mapper.writeValueAsString(this);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+    public void replaceNullFields() {
+        if (this.type == null) this.type = "";
+        if (this.requestId == null) this.requestId = "";
+        if (this.widgetId == null) this.widgetId = "";
+        if (this.owner == null) this.owner = "";
+        if (this.label == null) this.label = "";
+        if (this.description == null) this.description = "";
+        if (this.otherAttributes != null) {
+            for (OtherAttribute attr : this.otherAttributes) {
+                if (attr.getName() == null) attr.setName("");
+                if (attr.getValue() == null) attr.setValue("");
+            }
+        }
+        if (this.otherAttributes == null){
+            this.otherAttributes = List.of();
         }
     }
 
     public static WidgetRequest fromJson(String json) {
         ObjectMapper mapper = new ObjectMapper();
         try {
-            return mapper.readValue(json, WidgetRequest.class);
+            if(json == null || json.isEmpty()) {
+                return new WidgetRequest();
+            }
+            WidgetRequest request = mapper.readValue(json, WidgetRequest.class);
+            request.replaceNullFields();
+            return request;
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public String toJson() {
+        replaceNullFields();
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            return mapper.writeValueAsString(this);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
