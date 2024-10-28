@@ -6,6 +6,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,12 +30,19 @@ public class S3Interactor {
         this.storageStrategy = storageStrategy;
         this.logger = logger;
         try {
-            StaticCredentialsProvider credentialsProvider = AwsCredentialsLoader.loadCredentials(System.getProperty("user.home") + "/.aws/credentials");
-            s3 = S3Client.builder()
-                    .region(Region.US_EAST_1)
-                    .credentialsProvider(credentialsProvider)
-                    .build();
-            logger.log(Level.INFO, "Successfully loaded AWS credentials");
+            if (isRunningOnEC2()) {
+                s3 = S3Client.builder()
+                        .region(Region.US_EAST_1)
+                        .build();
+                logger.log(Level.INFO, "Using EC2 instance IAM role for AWS credentials");
+            } else {
+                StaticCredentialsProvider credentialsProvider = AwsCredentialsLoader.loadCredentials(System.getProperty("user.home") + "/.aws/credentials");
+                s3 = S3Client.builder()
+                        .region(Region.US_EAST_1)
+                        .credentialsProvider(credentialsProvider)
+                        .build();
+                logger.log(Level.INFO, "Successfully loaded AWS credentials from file");
+            }
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to load AWS credentials: " + e.getMessage());
         }
@@ -41,6 +50,20 @@ public class S3Interactor {
         createRequestHandler = new CreateRequestHandler();
         deleteRequestHandler = new DeleteRequestHandler();
         updateRequestHandler = new UpdateRequestHandler();
+    }
+
+    public boolean isRunningOnEC2() {
+        try {
+            URL url = new URL("http://169.254.169.254/latest/meta-data/");
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(1000);
+            connection.setReadTimeout(1000);
+            int responseCode = connection.getResponseCode();
+            return responseCode == 200;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     public String getStorageStrategy() {
