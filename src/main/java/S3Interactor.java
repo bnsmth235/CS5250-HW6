@@ -10,10 +10,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class S3Interactor {
-    private final String BUCKET_NAME ;
+    private final String BUCKET_NAME;
     public final S3Client s3 = S3Client.builder().build();
     private final String storageStrategy;
-
 
     public S3Interactor(String BUCKET_NAME, String storageStrategy) {
         this.BUCKET_NAME = BUCKET_NAME;
@@ -61,10 +60,22 @@ public class S3Interactor {
         ObjectMapper mapper = new ObjectMapper();
         try {
             WidgetRequest request = mapper.readValue(jsonRequest, WidgetRequest.class);
-            if ("S3".equalsIgnoreCase(storageStrategy)) {
-                storeWidgetInS3(request);
-            } else if ("DynamoDB".equalsIgnoreCase(storageStrategy)) {
-                storeWidgetInDynamoDB(request);
+            switch (request.getType().toLowerCase()) {
+                case "create":
+                    if ("S3".equalsIgnoreCase(storageStrategy)) {
+                        storeWidgetInS3(request);
+                    } else if ("DynamoDB".equalsIgnoreCase(storageStrategy)) {
+                        storeWidgetInDynamoDB(request);
+                    }
+                    break;
+                case "update":
+                    // Implement update logic here
+                    break;
+                case "delete":
+                    // Implement delete logic here
+                    break;
+                default:
+                    System.out.println("Unknown request type: " + request.getType());
             }
         } catch (Exception e) {
             System.out.println("Failed to process request: " + e.getMessage());

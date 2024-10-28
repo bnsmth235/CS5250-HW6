@@ -17,6 +17,7 @@ public class WidgetRequest {
     @JsonProperty("description")
     private String description;
     @JsonProperty("otherAttributes")
+    private List<OtherAttribute> otherAttributes;
 
     // Getters and Setters
 
@@ -25,19 +26,82 @@ public class WidgetRequest {
         return mapper.writeValueAsString(this);
     }
 
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
+    }
+
     public String getWidgetId() {
         return widgetId;
+    }
+
+    public void setWidgetId(String widgetId) {
+        this.widgetId = widgetId;
     }
 
     public String getOwner() {
         return owner;
     }
 
+    public void setOwner(String owner) {
+        this.owner = owner;
+    }
+
     public String getLabel() {
         return label;
     }
 
+    public void setLabel(String label) {
+        this.label = label;
+    }
+
     public String getDescription() {
         return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public List<OtherAttribute> getOtherAttributes() {
+        return otherAttributes;
+    }
+
+    public void setOtherAttributes(List<OtherAttribute> otherAttributes) {
+        this.otherAttributes = otherAttributes;
+    }
+
+    public static class OtherAttribute {
+        @JsonProperty("name")
+        private String name;
+        @JsonProperty("value")
+        private String value;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
     }
 }
