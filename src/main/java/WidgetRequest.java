@@ -21,9 +21,22 @@ public class WidgetRequest {
 
     // Getters and Setters
 
-    public String toJson() throws JsonProcessingException {
+    public String toJson() {
         ObjectMapper mapper = new ObjectMapper();
-        return mapper.writeValueAsString(this);
+        try {
+            return mapper.writeValueAsString(this);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static WidgetRequest fromJson(String json) {
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            return mapper.readValue(json, WidgetRequest.class);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public String getType() {

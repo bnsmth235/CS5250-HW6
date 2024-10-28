@@ -1,22 +1,44 @@
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
-import java.util.HashMap;
-import java.util.Map;
+
+import java.io.IOException;
 
 public class S3Interactor {
-    private final String BUCKET_NAME;
-    public final S3Client s3 = S3Client.builder().build();
-    private final String storageStrategy;
+    public String BUCKET_NAME;
+    public S3Client s3;
+    private String storageStrategy;
+    public CreateRequestHandler createRequestHandler;
+    public DeleteRequestHandler deleteRequestHandler;
+    public UpdateRequestHandler updateRequestHandler;
+
+    public S3Interactor(){
+
+    }
 
     public S3Interactor(String BUCKET_NAME, String storageStrategy) {
         this.BUCKET_NAME = BUCKET_NAME;
         this.storageStrategy = storageStrategy;
+
+        try {
+            StaticCredentialsProvider credentialsProvider = AwsCredentialsLoader.loadCredentials(System.getProperty("user.home") + "/.aws/credentials");
+            s3 = S3Client.builder()
+                    .region(Region.US_EAST_1)
+                    .credentialsProvider(credentialsProvider)
+                    .build();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load AWS credentials", e);
+        }
+
+        createRequestHandler = new CreateRequestHandler();
+        deleteRequestHandler = new DeleteRequestHandler();
+        updateRequestHandler = new UpdateRequestHandler();
+    }
+
+    public String getStorageStrategy() {
+        return storageStrategy;
     }
 
     public void pollRequests() {
@@ -50,29 +72,25 @@ public class S3Interactor {
         var request = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(BUCKET_NAME).key(key).build()).asUtf8String();
 
         // Process the request
-        processCreateRequest(request);
+        processObjectRequest(request);
 
         // Delete the request
         s3.deleteObject(DeleteObjectRequest.builder().bucket(BUCKET_NAME).key(key).build());
     }
 
-    public void processCreateRequest(String jsonRequest) {
+    public void processObjectRequest(String jsonRequest) {
         ObjectMapper mapper = new ObjectMapper();
         try {
             WidgetRequest request = mapper.readValue(jsonRequest, WidgetRequest.class);
             switch (request.getType().toLowerCase()) {
                 case "create":
-                    if ("S3".equalsIgnoreCase(storageStrategy)) {
-                        storeWidgetInS3(request);
-                    } else if ("DynamoDB".equalsIgnoreCase(storageStrategy)) {
-                        storeWidgetInDynamoDB(request);
-                    }
+                    createRequestHandler.processObjectRequest(request);
                     break;
                 case "update":
-                    // Implement update logic here
+                    updateRequestHandler.processObjectRequest(request);
                     break;
                 case "delete":
-                    // Implement delete logic here
+                    deleteRequestHandler.processObjectRequest(request);
                     break;
                 default:
                     System.out.println("Unknown request type: " + request.getType());
@@ -82,30 +100,5 @@ public class S3Interactor {
         }
     }
 
-    private void storeWidgetInDynamoDB(WidgetRequest request) {
-        DynamoDbClient dynamoDb = DynamoDbClient.builder().build();
 
-        Map<String, AttributeValue> item = new HashMap<>();
-        item.put("widget_id", AttributeValue.builder().s(request.getWidgetId()).build());
-        item.put("owner", AttributeValue.builder().s(request.getOwner()).build());
-        item.put("label", AttributeValue.builder().s(request.getLabel()).build());
-        item.put("description", AttributeValue.builder().s(request.getDescription()).build());
-
-        PutItemRequest putItemRequest = PutItemRequest.builder()
-                .tableName("widgets")
-                .item(item)
-                .build();
-
-        dynamoDb.putItem(putItemRequest);
-    }
-
-    public void storeWidgetInS3(WidgetRequest request) throws JsonProcessingException {
-        String key = String.format("widgets/%s/%s",
-            request.getOwner().toLowerCase().replace(" ", "-"),
-            request.getWidgetId());
-
-        PutObjectRequest putRequest = generatePutRequest(key);
-
-        s3.putObject(putRequest, RequestBody.fromString(request.toJson()));
-    }
 }

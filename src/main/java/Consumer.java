@@ -2,6 +2,14 @@ import org.apache.commons.cli.*;
 
 public class Consumer {
     private static final String BUCKET_NAME = "usu-cs5250-drummerboy-requests";
+    private static S3Interactor s3Interactor;
+
+    public Consumer(String[] args) {
+    }
+
+    public void setS3Interactor(S3Interactor s3Interactor) {
+        this.s3Interactor = s3Interactor;
+    }
 
     public static void main(String[] args) {
         Options options = new Options();
@@ -23,7 +31,9 @@ public class Consumer {
         }
 
         String storageStrategy = cmd.getOptionValue("storage");
-        S3Interactor s3Interactor = new S3Interactor(BUCKET_NAME, storageStrategy);
+        if (s3Interactor == null) {
+            s3Interactor = new S3Interactor(BUCKET_NAME, storageStrategy);
+        }
         s3Interactor.pollRequests();
     }
 }
