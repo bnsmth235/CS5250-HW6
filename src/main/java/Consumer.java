@@ -1,9 +1,10 @@
 import org.apache.commons.cli.*;
 
 public class Consumer {
+    private static final String BUCKET_NAME = "usu-cs5250-drummerboy-requests";
+
     public static void main(String[] args) {
         Options options = new Options();
-
         Option storageOption = new Option("s", "storage", true, "Storage strategy (S3 or DynamoDB)");
         storageOption.setRequired(true);
         options.addOption(storageOption);
@@ -22,6 +23,7 @@ public class Consumer {
         }
 
         String storageStrategy = cmd.getOptionValue("storage");
-        // Use storageStrategy in your application
+        S3Interactor s3Interactor = new S3Interactor(BUCKET_NAME, storageStrategy);
+        s3Interactor.pollRequests();
     }
 }

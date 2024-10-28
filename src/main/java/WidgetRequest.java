@@ -1,8 +1,6 @@
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.lang.classfile.Attribute;
 import java.util.List;
 
 public class WidgetRequest {
@@ -19,12 +17,27 @@ public class WidgetRequest {
     @JsonProperty("description")
     private String description;
     @JsonProperty("otherAttributes")
-    private List<Attribute> otherAttributes;
 
     // Getters and Setters
 
     public String toJson() throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         return mapper.writeValueAsString(this);
+    }
+
+    public String getWidgetId() {
+        return widgetId;
+    }
+
+    public String getOwner() {
+        return owner;
+    }
+
+    public String getLabel() {
+        return label;
+    }
+
+    public String getDescription() {
+        return description;
     }
 }
