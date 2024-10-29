@@ -1,15 +1,19 @@
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
-import java.util.Comparator;
+
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class S3ApplicationInteractor {
-    public String BUCKET2_NAME;
-    public String BUCKET3_NAME = "usu-cs5250-drummerboy-web";
-
+public class S3Interactor {
+    private static final org.slf4j.Logger log = LoggerFactory.getLogger(S3Interactor.class);
+    public String BUCKET_NAME;
     public S3Client s3;
     private String storageStrategy;
     public CreateRequestHandler createRequestHandler;
@@ -17,22 +21,49 @@ public class S3ApplicationInteractor {
     public UpdateRequestHandler updateRequestHandler;
     public Logger logger;
 
-    public S3ApplicationInteractor(){
+    public S3Interactor(){
 
     }
 
-    public S3ApplicationInteractor(String BUCKET2_NAME, String storageStrategy, Logger logger) {
-        this.BUCKET2_NAME = BUCKET2_NAME;
+    public S3Interactor(String BUCKET_NAME, String storageStrategy, Logger logger) {
+        this.BUCKET_NAME = BUCKET_NAME;
         this.storageStrategy = storageStrategy;
         this.logger = logger;
-
-        s3 = S3Client.builder()
-                .region(Region.US_EAST_1)
-                .build();
+        try {
+            if (isRunningOnEC2()) {
+                s3 = S3Client.builder()
+                        .region(Region.US_EAST_1)
+                        .build();
+                logger.log(Level.INFO, "Using EC2 instance IAM role for AWS credentials");
+            } else {
+                StaticCredentialsProvider credentialsProvider = AwsCredentialsLoader.loadCredentials(System.getProperty("user.home") + "/.aws/credentials");
+                s3 = S3Client.builder()
+                        .region(Region.US_EAST_1)
+                        .credentialsProvider(credentialsProvider)
+                        .build();
+                logger.log(Level.INFO, "Successfully loaded AWS credentials from file");
+            }
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Failed to load AWS credentials: " + e.getMessage());
+        }
 
         createRequestHandler = new CreateRequestHandler();
         deleteRequestHandler = new DeleteRequestHandler();
         updateRequestHandler = new UpdateRequestHandler();
+    }
+
+    public boolean isRunningOnEC2() {
+        try {
+            URL url = new URL("http://169.254.169.254/latest/meta-data/");
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(1000);
+            connection.setReadTimeout(1000);
+            int responseCode = connection.getResponseCode();
+            return responseCode == 200;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     public String getStorageStrategy() {
@@ -40,19 +71,14 @@ public class S3ApplicationInteractor {
     }
 
     public void pollRequests() {
-        long startTime = System.currentTimeMillis();
         while (true) {
             ListObjectsV2Request listRequest = ListObjectsV2Request.builder()
-                    .bucket(BUCKET2_NAME)
+                    .bucket(BUCKET_NAME)
                     .build();
             ListObjectsV2Response listResponse = s3.listObjectsV2(listRequest);
 
-            listResponse.contents().stream().min(Comparator.comparing(S3Object::key)).ifPresent(object -> processRequest(object.key()));
-
-            if (listResponse.contents().isEmpty() && (System.currentTimeMillis() - startTime) > 10000) {
-                logger.log(Level.INFO, "No items returned for 10 seconds, stopping the system.");
-                break;
-            }
+            listResponse.contents().stream().sorted()
+                .findFirst().ifPresent(object -> processRequest(object.key()));
 
             try {
                 Thread.sleep(100); // Wait 100ms before polling again
@@ -65,23 +91,21 @@ public class S3ApplicationInteractor {
 
     public PutObjectRequest generatePutRequest(String key) {
         return PutObjectRequest.builder()
-                .bucket(BUCKET3_NAME)
+                .bucket(BUCKET_NAME)
                 .key(key)
                 .build();
     }
 
     private void processRequest(String key) {
         // Retrieve the request
-        logger.log(Level.INFO, "Processing request: " + key);
-        try{
-            String request = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(BUCKET2_NAME).key(key).build()).asUtf8String();
-            // Process the request
-            processObjectRequest(request);
-            // Delete the request
-            s3.deleteObject(DeleteObjectRequest.builder().bucket(BUCKET2_NAME).key(key).build());
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Failed to process request: " + key, e);
-        }
+        var request = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(BUCKET_NAME).key(key).build()).asUtf8String();
+        logger.log(Level.INFO, "Processing request: " + request);
+        // Process the request
+        processObjectRequest(request);
+        logger.log(Level.INFO, "Successfully processed request: " + request);
+        // Delete the request
+        s3.deleteObject(DeleteObjectRequest.builder().bucket(BUCKET_NAME).key(key).build());
+        logger.log(Level.INFO, "Deleted request: " + request);
     }
 
     public void processObjectRequest(String jsonRequest) {
@@ -90,15 +114,12 @@ public class S3ApplicationInteractor {
             WidgetRequest request = mapper.readValue(jsonRequest, WidgetRequest.class);
             switch (request.getType().toLowerCase()) {
                 case "create":
-                    logger.log(Level.INFO, "Processing create request: " + request);
                     createRequestHandler.processObjectRequest(request);
                     break;
                 case "update":
-                    logger.log(Level.INFO, "Processing update request: " + request);
                     updateRequestHandler.processObjectRequest(request);
                     break;
                 case "delete":
-                    logger.log(Level.INFO, "Processing delete request: " + request);
                     deleteRequestHandler.processObjectRequest(request);
                     break;
                 default:
@@ -108,5 +129,6 @@ public class S3ApplicationInteractor {
             logger.log(Level.SEVERE, "Failed to process request: " + jsonRequest, e);
         }
     }
+
 
 }
