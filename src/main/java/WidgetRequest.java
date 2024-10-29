@@ -1,6 +1,9 @@
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 public class WidgetRequest {
@@ -33,7 +36,7 @@ public class WidgetRequest {
             }
         }
         if (this.otherAttributes == null){
-            this.otherAttributes = List.of();
+            this.otherAttributes = Collections.emptyList();
         }
     }
 

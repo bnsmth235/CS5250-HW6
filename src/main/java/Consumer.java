@@ -1,59 +1,73 @@
-import org.apache.commons.cli.*;
-
 import java.io.IOException;
 import java.util.logging.*;
 
 public class Consumer {
-    private static final String BUCKET_NAME = "usu-cs5250-drummerboy-requests";
-    private static S3Interactor s3Interactor;
+    private static final String BUCKET2_NAME = "usu-cs5250-drummerboy-requests";
+    private static S3ApplicationInteractor s3ApplicationInteractor;
     private static final Logger logger = Logger.getLogger(Consumer.class.getName());
 
     public Consumer(String[] args) {
         main(args);
     }
 
-    public void setS3Interactor(S3Interactor s3Interactor) {
-        this.s3Interactor = s3Interactor;
-    }
-
     public static void main(String[] args) {
-        setupLogger();
+        boolean verbose = false;
+        String storageStrategy = "default";
 
-        Options options = new Options();
-        Option storageOption = new Option("s", "storage", true, "Storage strategy (S3 or DynamoDB)");
-        storageOption.setRequired(true);
-        options.addOption(storageOption);
-
-        CommandLineParser parser = new DefaultParser();
-        HelpFormatter formatter = new HelpFormatter();
-        CommandLine cmd;
-
-        try {
-            cmd = parser.parse(options, args);
-        } catch (ParseException e) {
-            logger.severe("Failed to parse command line arguments: " + e.getMessage());
-            formatter.printHelp("Consumer", options);
-            System.exit(1);
-            return;
+        for (String arg : args) {
+            if (arg.equalsIgnoreCase("-v")) {
+                verbose = true;
+            } else {
+                storageStrategy = arg;
+            }
         }
 
-        String storageStrategy = cmd.getOptionValue("storage");
+        setupLogger(verbose);
+
+        if (!storageStrategy.equalsIgnoreCase("s3") && !storageStrategy.equalsIgnoreCase("dynamodb")) {
+            System.out.println("Invalid storage strategy. Please use 's3' or 'dynamodb'.");
+            System.out.println("Usage: java -jar consumer.jar [-v] [s3|dynamodb]");
+            System.exit(1);
+        }
         logger.info("Storage strategy: " + storageStrategy);
 
-        if (s3Interactor == null) {
-            s3Interactor = new S3Interactor(BUCKET_NAME, storageStrategy, logger);
+        if (s3ApplicationInteractor == null) {
+            s3ApplicationInteractor = new S3ApplicationInteractor(BUCKET2_NAME, storageStrategy, logger);
         }
-        s3Interactor.pollRequests();
+        System.out.println("Polling for requests...");
+        try{
+            s3ApplicationInteractor.pollRequests();
+        }
+        catch (Exception e){
+            logger.severe("Error processing requests: " + e.getMessage());
+        }
+        System.out.println("Exiting consumer, no more requests to process.");
     }
 
-    private static void setupLogger() {
+    private static void setupLogger(boolean verbose) {
         try {
+            // Reset the logger configuration
             LogManager.getLogManager().reset();
-            Logger rootLogger = Logger.getLogger("");
+
+            // Configure the custom logger
+            logger.setLevel(Level.ALL);
             FileHandler fileHandler = new FileHandler("consumer.log", true);
             fileHandler.setFormatter(new SimpleFormatter());
-            rootLogger.addHandler(fileHandler);
-            rootLogger.setLevel(Level.ALL);
+            logger.addHandler(fileHandler);
+
+            if (verbose) {
+                ConsoleHandler consoleHandler = new ConsoleHandler();
+                consoleHandler.setLevel(Level.ALL);
+                consoleHandler.setFormatter(new SimpleFormatter());
+                logger.addHandler(consoleHandler);
+            }
+
+            // Optionally, remove handlers from the root logger to avoid capturing all system logs
+            Logger rootLogger = Logger.getLogger("");
+            Handler[] handlers = rootLogger.getHandlers();
+            for (Handler handler : handlers) {
+                rootLogger.removeHandler(handler);
+            }
         } catch (IOException e) {
             logger.severe("Failed to setup logger: " + e.getMessage());
         }

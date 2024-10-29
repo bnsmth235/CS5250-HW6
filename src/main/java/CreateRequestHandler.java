@@ -5,12 +5,11 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectResponse;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 
-public class CreateRequestHandler extends S3Interactor{
+public class CreateRequestHandler extends S3ApplicationInteractor {
 
     public CreateRequestHandler() {
 
@@ -47,10 +46,10 @@ public class CreateRequestHandler extends S3Interactor{
 
         PutItemResponse response = dynamoDb.putItem(putItemRequest);
         if(response.sdkHttpResponse().isSuccessful()){
-            super.logger.log(Level.INFO, "Widget stored in DynamoDB");
+            super.logger.log(Level.INFO, "Widget %s created in DynamoDB", request.getWidgetId());
         }
         else{
-            super.logger.log(Level.WARNING, "Widget not stored in DynamoDB");
+            super.logger.log(Level.WARNING, "Widget %s not stored in DynamoDB", request.getWidgetId());
         }
     }
 
@@ -63,10 +62,10 @@ public class CreateRequestHandler extends S3Interactor{
 
         PutObjectResponse response = s3.putObject(putRequest, RequestBody.fromString(request.toJson()));
         if(response.sdkHttpResponse().isSuccessful()){
-            super.logger.log(Level.INFO, "Widget stored in S3");
+            super.logger.log(Level.INFO, "Widget %s created in S3", request.getWidgetId());
         }
         else{
-            super.logger.log(Level.WARNING, "Widget not stored in S3");
+            super.logger.log(Level.WARNING, "Widget %s not stored in S3", request.getWidgetId());
         }
     }
 }

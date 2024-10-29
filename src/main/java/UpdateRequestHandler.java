@@ -4,13 +4,16 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 
-public class UpdateRequestHandler extends S3Interactor{
+public class UpdateRequestHandler extends S3ApplicationInteractor {
 
     public UpdateRequestHandler() {
     }
@@ -51,7 +54,13 @@ public class UpdateRequestHandler extends S3Interactor{
                 .item(updatedAttributes)
                 .build();
 
-        dynamoDb.putItem(putItemRequest);
+        PutItemResponse response = dynamoDb.putItem(putItemRequest);
+        if(response.sdkHttpResponse().isSuccessful()){
+            super.logger.log(Level.INFO, String.format("Widget %s updated in DynamoDB", request.getWidgetId()));
+        }
+        else{
+            super.logger.log(Level.WARNING, String.format("Widget %s not updated in DynamoDB", request.getWidgetId()));
+        }
     }
 
     private void updateWidgetInS3(WidgetRequest request) {
@@ -60,7 +69,7 @@ public class UpdateRequestHandler extends S3Interactor{
             request.getWidgetId());
 
         // Retrieve the existing widget
-        String existingWidgetJson = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(super.BUCKET_NAME).key(key).build()).asUtf8String();
+        String existingWidgetJson = s3.getObjectAsBytes(GetObjectRequest.builder().bucket(super.BUCKET2_NAME).key(key).build()).asUtf8String();
         ObjectMapper mapper = new ObjectMapper();
         WidgetRequest existingWidget = null;
         try {
@@ -82,6 +91,12 @@ public class UpdateRequestHandler extends S3Interactor{
 
         // Store the updated widget
         PutObjectRequest putRequest = generatePutRequest(key);
-        s3.putObject(putRequest, RequestBody.fromString(existingWidget.toJson()));
+        PutObjectResponse response = s3.putObject(putRequest, RequestBody.fromString(existingWidget.toJson()));
+        if(response.sdkHttpResponse().isSuccessful()){
+            super.logger.log(Level.INFO, "Widget %s updated in S3", request.getWidgetId());
+        }
+        else{
+            super.logger.log(Level.WARNING, "Widget %s not updated in S3", request.getWidgetId());
+        }
     }
 }

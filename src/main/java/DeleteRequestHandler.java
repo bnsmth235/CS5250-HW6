@@ -1,12 +1,15 @@
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 
-public class DeleteRequestHandler extends S3Interactor {
+public class DeleteRequestHandler extends S3ApplicationInteractor {
     public DeleteRequestHandler() {
     }
 
@@ -24,11 +27,17 @@ public class DeleteRequestHandler extends S3Interactor {
             request.getWidgetId());
 
         DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
-                .bucket(super.BUCKET_NAME)
+                .bucket(super.BUCKET2_NAME)
                 .key(key)
                 .build();
 
-        super.s3.deleteObject(deleteRequest);
+        DeleteObjectResponse response = super.s3.deleteObject(deleteRequest);
+        if(response.sdkHttpResponse().isSuccessful()){
+            super.logger.log(Level.INFO, "Widget %s deleted from S3", request.getWidgetId());
+        }
+        else{
+            super.logger.log(Level.WARNING, "Widget %s not deleted from S3", request.getWidgetId());
+        }
     }
 
     private void deleteWidgetFromDynamoDB(WidgetRequest request) {
@@ -43,6 +52,12 @@ public class DeleteRequestHandler extends S3Interactor {
                 .key(key)
                 .build();
 
-        dynamoDb.deleteItem(deleteRequest);
+        DeleteItemResponse response = dynamoDb.deleteItem(deleteRequest);
+        if(response.sdkHttpResponse().isSuccessful()){
+            super.logger.log(Level.INFO, "Widget %s deleted from DynamoDB", request.getWidgetId());
+        }
+        else{
+            super.logger.log(Level.WARNING, "Widget %s not deleted from DynamoDB", request.getWidgetId());
+        }
     }
 }
